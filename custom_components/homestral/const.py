@@ -118,26 +118,63 @@ STT_REALTIME_BUFFER_MAX_BYTES = STT_SAMPLE_RATE * 2 * 60
 # Fired on turn.eager_end (the user has probably finished speaking): a hook for pre-warming.
 EVENT_STT_EAGER_END = "homestral_stt_eager_end"
 
-# Home automation vocabulary sent as context_bias. Voxtral 3 accepts multi-word phrases;
-# entries must not contain commas (one form field per entry on the wire).
-HOME_AUTOMATION_VOCAB = [
-    "lumière",
-    "lumières",
-    "prise",
-    "thermostat",
-    "volet roulant",
-    "store",
-    "chauffage",
-    "climatisation",
-    "allume",
-    "éteins",
-    "ouvre",
-    "ferme",
-    "température",
-    "luminosité",
-    "Home Assistant",
-    "Homestral",
-]
+# Home automation vocabulary sent as context_bias, per assistant language (ISO 639-1). Voxtral 3
+# accepts multi-word phrases; entries must not contain commas (one form field per entry on the wire).
+# A language without a list gets only the language-neutral names below.
+HOME_AUTOMATION_VOCAB: dict[str, list[str]] = {
+    "fr": [
+        "lumière",
+        "lumières",
+        "prise",
+        "thermostat",
+        "volet roulant",
+        "store",
+        "chauffage",
+        "climatisation",
+        "allume",
+        "éteins",
+        "ouvre",
+        "ferme",
+        "température",
+        "luminosité",
+    ],
+    "en": [
+        "light",
+        "lights",
+        "plug",
+        "thermostat",
+        "roller shutter",
+        "blinds",
+        "heating",
+        "air conditioning",
+        "turn on",
+        "turn off",
+        "open",
+        "close",
+        "temperature",
+        "brightness",
+    ],
+    "cs": [
+        "světlo",
+        "světla",
+        "lampa",
+        "zásuvka",
+        "termostat",
+        "roleta",
+        "žaluzie",
+        "topení",
+        "klimatizace",
+        "rozsviť",
+        "zhasni",
+        "zapni",
+        "vypni",
+        "otevři",
+        "zavři",
+        "teplota",
+        "jas",
+    ],
+}
+HOME_AUTOMATION_VOCAB_ANY_LANGUAGE = ["Home Assistant", "Homestral"]
 
 # TTS — Voxtral TTS 3 via /v1/audio/speech (24 kHz mono output)
 DEFAULT_TTS_MODEL = "voxtral-mini-tts-3-0"

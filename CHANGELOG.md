@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Security hardening**: GitHub Actions pinned to commit SHAs across all workflows, a CodeQL workflow (Python SAST with `security-extended` queries, weekly scan), an OpenSSF Scorecard workflow, and a hardened `dependabot.yml` (PR limits, labels, reviewers, grouped updates).
 - **README**: CodeQL, OpenSSF Scorecard and Security badges, a Security section linking to `SECURITY.md`, and an Accessibility section linking to `ACCESSIBILITY.md`.
 
+### Changed
+
+- **Speech-to-text vocabulary per language**: the built-in home-automation words sent as `context_bias` were French for every language. They now follow the assistant's language, also when Voxtral detects the spoken one: French, English and Czech have a list, and other languages get only the language-neutral names ("Home Assistant", "Homestral"). The minute-long cache is kept per language, so assistants in different languages no longer share one list.
+
 ## [0.6.1] - 2026-10-24
 
 First release driven by a real Home Assistant instance rather than unit tests alone.

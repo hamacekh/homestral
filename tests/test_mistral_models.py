@@ -97,15 +97,25 @@ def test_tts_delivery_tag_values():
     assert const.TTS_STREAM_FORMAT == "wav"
 
 
-def test_home_automation_vocab_entries_are_clean():
+@pytest.mark.parametrize(
+    "entries",
+    [*const.HOME_AUTOMATION_VOCAB.values(), const.HOME_AUTOMATION_VOCAB_ANY_LANGUAGE],
+    ids=[*const.HOME_AUTOMATION_VOCAB, "any"],
+)
+def test_home_automation_vocab_entries_are_clean(entries):
     """Entrees context_bias non vides, sans virgule, sans espace parasite, uniques."""
-    assert const.HOME_AUTOMATION_VOCAB, "HOME_AUTOMATION_VOCAB must not be empty"
-    lowered = [entry.lower() for entry in const.HOME_AUTOMATION_VOCAB]
+    assert entries, "vocabulary lists must not be empty"
+    lowered = [entry.lower() for entry in entries]
     assert len(lowered) == len(set(lowered)), "duplicate vocabulary entries"
-    for entry in const.HOME_AUTOMATION_VOCAB:
+    for entry in entries:
         assert isinstance(entry, str)
         assert entry and entry == entry.strip(), repr(entry)
         assert "," not in entry, f"context_bias entry must not contain a comma: {entry!r}"
+
+
+def test_home_automation_vocab_is_keyed_by_iso_639_1():
+    assert {"fr", "en", "cs"} <= set(const.HOME_AUTOMATION_VOCAB)
+    assert all(len(language) == 2 and language.islower() for language in const.HOME_AUTOMATION_VOCAB)
 
 
 @pytest.mark.parametrize("lang", ["fr", "en"])
