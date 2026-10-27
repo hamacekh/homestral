@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Security hardening**: GitHub Actions pinned to commit SHAs across all workflows, a CodeQL workflow (Python SAST with `security-extended` queries, weekly scan), an OpenSSF Scorecard workflow, and a hardened `dependabot.yml` (PR limits, labels, reviewers, grouped updates).
 - **README**: CodeQL, OpenSSF Scorecard and Security badges, a Security section linking to `SECURITY.md`, and an Accessibility section linking to `ACCESSIBILITY.md`.
 
+### Fixed
+
+- **Realtime speech-to-text latency**: the transcript reached Home Assistant about 1.15 s after `transcription.done`, because HomeStral waited for Mistral to answer the websocket close. The transcript is now returned at once and the socket is closed in a background task.
+
 ## [0.6.1] - 2026-10-24
 
 First release driven by a real Home Assistant instance rather than unit tests alone.

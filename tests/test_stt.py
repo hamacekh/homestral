@@ -80,6 +80,7 @@ class FakeSession:
     instances: list = []
     script: list = []
     fail_connect = False
+    close_gate: asyncio.Event | None = None
 
     def __init__(self, api_key, **kwargs):
         self.api_key = api_key
@@ -93,12 +94,13 @@ class FakeSession:
     def audio_ended(self):
         return self.ended
 
-    async def __aenter__(self):
+    async def connect(self):
         if FakeSession.fail_connect:
             raise RealtimeSessionError("connect failed")
-        return self
 
-    async def __aexit__(self, *exc):
+    async def close(self):
+        if FakeSession.close_gate is not None:
+            await FakeSession.close_gate.wait()  # a server slow to answer the close
         self.closed = True
 
     async def send_audio(self, pcm):
@@ -125,6 +127,7 @@ def fake_session(monkeypatch):
     FakeSession.instances = []
     FakeSession.script = []
     FakeSession.fail_connect = False
+    FakeSession.close_gate = None
     monkeypatch.setattr(stt_mod, "RealtimeSession", FakeSession)
     monkeypatch.setattr(stt_mod, "async_stt_vocabulary", AsyncMock(return_value=list(VOCABULARY)))
     return FakeSession
@@ -132,6 +135,10 @@ def fake_session(monkeypatch):
 
 def _make_provider(options=None):
     hass = MagicMock()
+    hass.background_tasks = []
+    hass.async_create_background_task.side_effect = lambda target, name, **kwargs: hass.background_tasks.append(
+        asyncio.ensure_future(target)
+    )
     entry = MagicMock()
     entry.entry_id = "entry"
     entry.data = {"api_key": "sk-test"}
@@ -194,8 +201,25 @@ async def test_realtime_success_streams_all_chunks_and_uses_options(fake_session
     assert session.kwargs["streaming_delay_ms"] == 960
     assert session.kwargs["turn_detection"].model_dump(exclude_unset=True) == TURN_PRESETS["aggressive"]
     assert session.sent == [CHUNK, CHUNK, CHUNK]
+    await asyncio.gather(*provider.hass.background_tasks)
     assert session.ended and session.closed
     provider._client.audio.transcriptions.complete_async.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_realtime_returns_the_transcript_without_waiting_for_the_close(fake_session):
+    fake_session.script = [_delta("Allume"), _done("Allume")]
+    fake_session.close_gate = asyncio.Event()
+    provider = _make_provider()
+
+    result = await asyncio.wait_for(provider.async_process_audio_stream(_metadata(), _stream(CHUNK)), 1)
+
+    assert result.text == "Allume"
+    session = fake_session.instances[0]
+    assert not session.closed  # still closing in the background
+    fake_session.close_gate.set()
+    await asyncio.gather(*provider.hass.background_tasks)
+    assert session.closed
 
 
 @pytest.mark.asyncio

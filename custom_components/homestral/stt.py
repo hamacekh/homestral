@@ -246,22 +246,28 @@ class VoxtralSttProvider(stt.SpeechToTextEntity):
                     get_option(self._entry, CONF_STT_STREAMING_DELAY_MS, DEFAULT_STT_STREAMING_DELAY_MS)
                 ),
             )
-            async with asyncio.timeout(REALTIME_TOTAL_TIMEOUT), session:
-                sender = asyncio.create_task(self._pump_audio(stream, session, buffer, outcome))
-                try:
-                    outcome.text = await self._collect_transcript(session, sender, outcome)
-                except RealtimeSessionError as exc:
-                    outcome.reason = str(exc)
-                    # Cancelling the pump would close the pipeline generator and lose the rest of
-                    # the utterance: keep draining it into the buffer for the batch fallback.
-                    _LOGGER.warning(f"[STT realtime] {exc} — draining the audio for the batch fallback")
-                    outcome.forward = False
-                    await sender
-                finally:
-                    if not sender.done():
-                        sender.cancel()
-                    with suppress(BaseException):
+            try:
+                async with asyncio.timeout(REALTIME_TOTAL_TIMEOUT):
+                    await session.connect()
+                    sender = asyncio.create_task(self._pump_audio(stream, session, buffer, outcome))
+                    try:
+                        outcome.text = await self._collect_transcript(session, sender, outcome)
+                    except RealtimeSessionError as exc:
+                        outcome.reason = str(exc)
+                        # Cancelling the pump would close the pipeline generator and lose the rest of
+                        # the utterance: keep draining it into the buffer for the batch fallback.
+                        _LOGGER.warning(f"[STT realtime] {exc} — draining the audio for the batch fallback")
+                        outcome.forward = False
                         await sender
+                    finally:
+                        if not sender.done():
+                            sender.cancel()
+                        with suppress(BaseException):
+                            await sender
+            finally:
+                # Mistral answers the websocket close about 1.15 s after transcription.done. The
+                # transcript is final by then, so the close must not hold up the pipeline.
+                self.hass.async_create_background_task(session.close(), "homestral_realtime_close")
         except (RealtimeSessionError, TimeoutError, OSError, ValueError) as exc:
             outcome.reason = f"{type(exc).__name__}: {exc}"
             _LOGGER.warning(f"[STT realtime] {exc} — falling back to batch transcription")
