@@ -18,6 +18,7 @@ from .const import (
     DEFAULT_STT_BIAS_ENTITIES,
     DEFAULT_STT_CUSTOM_VOCABULARY,
     HOME_AUTOMATION_VOCAB,
+    HOME_AUTOMATION_VOCAB_ANY_LANGUAGE,
     STT_VOCABULARY_CACHE_SECONDS,
     STT_VOCABULARY_MAX_ENTRIES,
 )
@@ -96,22 +97,25 @@ def area_and_floor_names(hass: HomeAssistant) -> list[str]:
     return names
 
 
-async def async_stt_vocabulary(hass: HomeAssistant, entry: ConfigEntry) -> list[str]:
-    """The context_bias list for one utterance, cached for a minute on the entry runtime.
+async def async_stt_vocabulary(hass: HomeAssistant, entry: ConfigEntry, language: str | None = None) -> list[str]:
+    """The context_bias list for one utterance, cached for a minute per language on the entry runtime.
 
     Priority order (the list is capped): the user's custom phrases, the built-in
-    home-automation vocabulary, area and floor names, then exposed entity names.
+    home-automation vocabulary of ``language`` (ISO 639-1) and the language-neutral
+    names, area and floor names, then exposed entity names.
     """
     cache = getattr(getattr(entry, "runtime_data", None), "cache", None)
+    cache_key = (_VOCABULARY_CACHE_KEY, language)
     now = time.monotonic()
     if isinstance(cache, dict):
-        cached = cache.get(_VOCABULARY_CACHE_KEY)
+        cached = cache.get(cache_key)
         if cached and now - cached[0] < STT_VOCABULARY_CACHE_SECONDS:
             return list(cached[1])
 
     groups: list[Iterable[str]] = [
         parse_custom_vocabulary(get_option(entry, CONF_STT_CUSTOM_VOCABULARY, DEFAULT_STT_CUSTOM_VOCABULARY)),
-        HOME_AUTOMATION_VOCAB,
+        HOME_AUTOMATION_VOCAB.get(language, []),
+        HOME_AUTOMATION_VOCAB_ANY_LANGUAGE,
     ]
     if get_option(entry, CONF_STT_BIAS_ENTITIES, DEFAULT_STT_BIAS_ENTITIES):
         groups.append(area_and_floor_names(hass))
@@ -119,7 +123,7 @@ async def async_stt_vocabulary(hass: HomeAssistant, entry: ConfigEntry) -> list[
     vocabulary = merge_vocabulary(*groups)
 
     if isinstance(cache, dict):
-        cache[_VOCABULARY_CACHE_KEY] = (now, list(vocabulary))
+        cache[cache_key] = (now, list(vocabulary))
     return vocabulary
 
 

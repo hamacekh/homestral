@@ -193,6 +193,7 @@ async def test_realtime_success_streams_all_chunks_and_uses_options(fake_session
     assert session.kwargs["sample_rate"] == 16000
     assert session.kwargs["language"] == "fr"
     assert session.kwargs["context_bias"] == VOCABULARY
+    assert stt_mod.async_stt_vocabulary.call_args.args[2] == "fr"
     assert session.kwargs["streaming_delay_ms"] == 960
     assert session.kwargs["turn_detection"].model_dump(exclude_unset=True) == TURN_PRESETS["aggressive"]
     assert session.sent == [CHUNK, CHUNK, CHUNK]
@@ -342,6 +343,8 @@ async def test_language_auto_omits_the_language_everywhere(fake_session):
 
     assert fake_session.instances[0].kwargs["language"] is None
     assert "language" not in provider._client.audio.transcriptions.complete_async.call_args.kwargs
+    # The built-in vocabulary still follows the assistant's language
+    assert stt_mod.async_stt_vocabulary.call_args.args[2] == "fr"
 
 
 @pytest.mark.asyncio

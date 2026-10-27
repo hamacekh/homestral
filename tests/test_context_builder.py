@@ -10,6 +10,7 @@ from custom_components.homestral.const import (
     CONF_STT_BIAS_ENTITIES,
     CONF_STT_CUSTOM_VOCABULARY,
     HOME_AUTOMATION_VOCAB,
+    HOME_AUTOMATION_VOCAB_ANY_LANGUAGE,
     STT_VOCABULARY_MAX_ENTRIES,
 )
 
@@ -90,17 +91,17 @@ async def test_async_stt_vocabulary_priority_and_cache():
         patch.object(cb, "area_and_floor_names", return_value=["Salon"]),
         patch.object(cb, "exposed_entity_names", return_value=["Lampe salon", "lumière"]),
     ):
-        vocabulary = await cb.async_stt_vocabulary(MagicMock(), entry)
+        vocabulary = await cb.async_stt_vocabulary(MagicMock(), entry, "fr")
 
     assert vocabulary[:2] == ["ma prise", "Grand-mère"]
-    assert all(entry_ in vocabulary for entry_ in HOME_AUTOMATION_VOCAB)
+    assert all(entry_ in vocabulary for entry_ in HOME_AUTOMATION_VOCAB["fr"] + HOME_AUTOMATION_VOCAB_ANY_LANGUAGE)
     assert vocabulary.index("Salon") < vocabulary.index("Lampe salon")
     assert vocabulary.count("lumière") == 1  # case-insensitive duplicate of the built-in entry
-    assert "stt_vocabulary" in entry.runtime_data.cache
+    assert ("stt_vocabulary", "fr") in entry.runtime_data.cache
 
     # Cached for a minute: changed registries are not consulted again
     with patch.object(cb, "exposed_entity_names", return_value=["Nouvelle lampe"]) as names:
-        again = await cb.async_stt_vocabulary(MagicMock(), entry)
+        again = await cb.async_stt_vocabulary(MagicMock(), entry, "fr")
     assert again == vocabulary
     names.assert_not_called()
 
@@ -112,11 +113,44 @@ async def test_async_stt_vocabulary_without_entity_bias_and_without_cache():
         patch.object(cb, "area_and_floor_names", return_value=["Salon"]) as areas,
         patch.object(cb, "exposed_entity_names", return_value=["Lampe salon"]) as names,
     ):
-        vocabulary = await cb.async_stt_vocabulary(MagicMock(), entry)
+        vocabulary = await cb.async_stt_vocabulary(MagicMock(), entry, "fr")
 
-    assert vocabulary == list(HOME_AUTOMATION_VOCAB)
+    assert vocabulary == HOME_AUTOMATION_VOCAB["fr"] + HOME_AUTOMATION_VOCAB_ANY_LANGUAGE
     areas.assert_not_called()
     names.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("language", ["cs", "en"])
+async def test_async_stt_vocabulary_uses_the_list_of_the_language(language):
+    entry = _entry({CONF_STT_BIAS_ENTITIES: False})
+
+    vocabulary = await cb.async_stt_vocabulary(MagicMock(), entry, language)
+
+    assert vocabulary == HOME_AUTOMATION_VOCAB[language] + HOME_AUTOMATION_VOCAB_ANY_LANGUAGE
+    assert "lumière" not in vocabulary
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("language", ["sv", None])
+async def test_async_stt_vocabulary_without_a_list_sends_only_neutral_names(language):
+    entry = _entry({CONF_STT_CUSTOM_VOCABULARY: "Kuchyň", CONF_STT_BIAS_ENTITIES: False})
+
+    vocabulary = await cb.async_stt_vocabulary(MagicMock(), entry, language)
+
+    assert vocabulary == ["Kuchyň", *HOME_AUTOMATION_VOCAB_ANY_LANGUAGE]
+
+
+@pytest.mark.asyncio
+async def test_async_stt_vocabulary_is_cached_per_language():
+    """Two assistants in different languages share the entry: each keeps its own list."""
+    entry = _entry({CONF_STT_BIAS_ENTITIES: False})
+
+    french = await cb.async_stt_vocabulary(MagicMock(), entry, "fr")
+    czech = await cb.async_stt_vocabulary(MagicMock(), entry, "cs")
+
+    assert "lumière" in french and "světlo" not in french
+    assert "světlo" in czech and "lumière" not in czech
 
 
 @pytest.mark.asyncio

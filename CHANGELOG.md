@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Speech-to-text languages**: 58 instead of Voxtral 2's 13. The list is the one the realtime API enforces (it rejects any other code), and it covers every language Mistral documents for file transcription. A language outside the realtime list goes straight to file transcription. Home Assistant's `nb` (Norwegian Bokmål) and `fil` (Filipino) are sent as `no` and `tl`, because Mistral only accepts two-letter codes.
 - **Text-to-speech languages**: every Voxtral 3 preset voice, checked against `GET /v1/audio/voices`. Adds Catalan, Hungarian, Japanese, Korean, Norwegian, Polish, Romanian, Russian, Turkish, Ukrainian, Vietnamese and Chinese, plus the UK English voices Fred, Hugo and Howard.
+- **Speech-to-text vocabulary per language**: the built-in home-automation words sent as `context_bias` were French for every language. They now follow the assistant's language, also when Voxtral detects the spoken one: French, English and Czech have a list, and other languages get only the language-neutral names ("Home Assistant", "Homestral"). The minute-long cache is kept per language, so assistants in different languages no longer share one list.
 
 ### Fixed
 

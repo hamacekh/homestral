@@ -44,6 +44,7 @@ from .const import (
     EVENT_STT_EAGER_END,
     STT_BATCH_MODELS,
     STT_LANGUAGE_AUTO,
+    STT_LANGUAGE_PIPELINE,
     STT_MODE_BATCH,
     STT_MODE_REALTIME,
     STT_MODEL_BATCH_MINI,
@@ -178,7 +179,10 @@ class VoxtralSttProvider(stt.SpeechToTextEntity):
         language = normalize_language(
             metadata.language, get_option(self._entry, CONF_STT_LANGUAGE, DEFAULT_STT_LANGUAGE)
         )
-        vocabulary = await async_stt_vocabulary(self.hass, self._entry)
+        # The assistant's language picks the built-in vocabulary, also when Voxtral detects the spoken one.
+        vocabulary = await async_stt_vocabulary(
+            self.hass, self._entry, normalize_language(metadata.language, STT_LANGUAGE_PIPELINE)
+        )
         mode = get_option(self._entry, CONF_STT_MODE, DEFAULT_STT_MODE)
         if mode == STT_MODE_REALTIME and language and language not in STT_REALTIME_LANGUAGES:
             _LOGGER.debug(f"[STT] realtime does not support {language!r}, using file transcription")
